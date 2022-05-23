@@ -1,0 +1,39 @@
+# 버전 지정 (현재 메이저 최신버전))
+version: '3.3'
+
+# 서비스 정의
+services:
+
+  algorithm:
+    image: isas_algorithm:${TAG:-latest}
+    container_name: algorithm_name
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    build:
+      # context: ./src/Services/isas_algorithm
+      dockerfile: ./Dockerfile
+    stdin_open: true
+    tty: true
+    environment:
+      - ROS_DISTRO=noetic
+    ports:
+      - 8822:22
+    volumes:
+      - ./noetic/.ros:/root/.ros
+    networks:
+      - kriso-net
+
+# 네트워크 정의
+networks:
+  kriso-net:
+    driver: bridge
+
+
+# 데이터 볼륨 정의
+volumes:
+  ros-log:
