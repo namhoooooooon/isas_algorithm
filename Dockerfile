@@ -55,7 +55,7 @@ RUN rosdep init && \
 
 # BASE 패키지 설치
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ros-noetic-ros-base=1.5.0-1* \
+    ros-noetic-desktop-full=1.5.0-1* \
     && rm -rf /var/lib/apt/lists/*
 
 
@@ -71,9 +71,40 @@ RUN apt-get -qq update && apt-get install -qq --no-install-recommends \
     vim \
     wget \
     curl \
+    nano \
+    libgoogle-glog-dev \
+    unzip \
+    libyaml-cpp-dev \
+
     && rm -rf /var/lib/apt/lists/*
 
+# libtorch 설치
+WORKDIR /opt
+ENV LIBTORCH_URL=https://download.pytorch.org/libtorch/lts/1.8/cu111/libtorch-cxx11-abi-shared-with-deps-1.8.2%2Bcu111.zip
+RUN curl -fsSL --insecure -o libtorch.zip $LIBTORCH_URL \
+    && unzip -q libtorch.zip \
+    && rm libtorch.zip \
+    && cp /opt/libtorch/lib/* /usr/lib \
+    && cp -r /opt/libtorch/include/* /usr/include \
+    && rm -r /opt/libtorch
+
+
+
 EXPOSE 22
+
+#######################################
+#     ISAS_KAIST_K 필요라이브러리 설치    #                
+#######################################
+RUN apt-get -qq update && apt-get install -qq --no-install-recommends \
+    ros-noetic-pcl-* \
+    libeigen3-dev \
+    python3-pip \
+    python3-opencv \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install numpy==1.19.3 numdifftools==0.9.39 scipy==1.5.4 scikit-build==0.11.1 matplotlib
+
+
 
 #######################################
 #             CUDA 도구 설치            # 
@@ -112,16 +143,47 @@ ENV LD_LIBRARY_PATH /usr/local/nvidia/lib:/usr/local/nvidia/lib64
 ENV NVIDIA_VISIBLE_DEVICES all
 ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
 
+#######################################
+#      ISAS_KAIST_K 알고리즘 빌드        # 
+#######################################
+
+RUN echo "source /opt/ros/noetic/setup.bash" >> ${HOME}/.bashrc
+RUN echo "source /root/catkin_ws/devel/local_setup.bash" >> ${HOME}/.bashrc
+
+SHELL ["/bin/bash", "-c"]
+WORKDIR ${HOME}
+RUN source ${HOME}/.bashrc
+
+RUN mkdir -p ${HOME}/catkin_ws/src/KAIST_MORIN_ISAS
+
+COPY ./KAIST_MORIN_ISAS ${HOME}/catkin_ws/src/KAIST_MORIN_ISAS
+# WORKDIR ${HOME}/catkin_ws
+RUN /bin/bash -c '. /opt/ros/noetic/setup.bash; cd ${HOME}/catkin_ws; catkin_make'
+
+RUN ls ${HOME}/catkin_ws/src/
+
+RUN chmod +x ${HOME}/catkin_ws/src/KAIST_MORIN_ISAS/me_asc/scripts/me_asc_node.py
+RUN chmod +x ${HOME}/catkin_ws/src/KAIST_MORIN_ISAS/mf_lte/scripts/mf_lte_node.py
+
+
+
+
 
 #######################################
 #             작업 환경 구성             # 
 #######################################
 USER root
 
+RUN apt-get -qq update && apt-get install -qq --no-install-recommends pip 
+
+
 WORKDIR ${HOME}
 RUN mkdir .ssh
 COPY ./asset/ ${HOME}
 RUN echo 'source ${HOME}/entrypoint.sh' >> ${HOME}/.bashrc
+
+RUN pip install webcolors;exit 0
+RUN pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu113;exit 0
 
 ENTRYPOINT service ssh restart && bash
 CMD ["/bin/bash"]
