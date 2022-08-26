@@ -14,4 +14,4 @@ if [ ! -d /root/catkin_ws ]; then
   catkin_make
 fi
 
-source "/root/catkin_ws/devel/local_setup.bash"
+source "/root/catkin_ws/devel/setup.bash"
